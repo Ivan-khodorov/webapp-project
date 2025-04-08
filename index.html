@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Выбор зоны</title>
+  <title>Выбор зоны распространения</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
@@ -17,7 +18,7 @@
       color: white;
       padding: 10px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       z-index: 999;
     }
   </style>
@@ -31,26 +32,30 @@
     const params = new URLSearchParams(window.location.search);
     const city = params.get("city");
 
-    const map = L.map("map").setView([55.75, 37.61], 13);
+    const map = L.map("map").setView([55.75, 37.61], 12);
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
 
     if (city) {
-      fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + city, {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`, {
         headers: {
-          'User-Agent': 'TelegramWebAppBot'
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (TelegramWebAppBot)"
         }
       })
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
           if (data.length > 0) {
-            const { lat, lon } = data[0];
-            map.setView([parseFloat(lat), parseFloat(lon)], 14);
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 13);
           } else {
-            alert("Город не найден");
+            alert("❌ Город не найден");
           }
-        });
+        })
+        .catch(err => alert("Ошибка загрузки координат города: " + err.message));
     }
 
     const drawnItems = new L.FeatureGroup();
@@ -68,7 +73,6 @@
         featureGroup: drawnItems
       }
     });
-
     map.addControl(drawControl);
 
     map.on(L.Draw.Event.CREATED, function (event) {
@@ -79,17 +83,13 @@
     function sendZone() {
       const data = drawnItems.toGeoJSON();
       if (!data.features.length) {
-        alert("Сначала выделите зону");
+        alert("⚠️ Сначала выделите зону на карте.");
         return;
       }
 
       const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lon, lat }));
-      const payload = {
-        city,
-        zone
-      };
+      const payload = { city, zone };
 
-      alert("✅ Данные отправлены");
       Telegram.WebApp.ready();
       Telegram.WebApp.sendData(JSON.stringify(payload));
       Telegram.WebApp.close();
