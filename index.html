@@ -1,45 +1,108 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Тест WebApp</title>
+  <title>Выбор зоны распространения</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
   <style>
-    html, body { margin: 0; padding: 0; font-family: sans-serif; }
-    .center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 50px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background: #28a745;
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    .btn-finish {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: green;
       color: white;
+      padding: 10px 20px;
       border: none;
       border-radius: 8px;
-      cursor: pointer;
+      z-index: 999;
     }
   </style>
 </head>
 <body>
-  <div class="center">
-    <h1>Тест Telegram WebApp API</h1>
-    <button onclick="sendTest()">🔄 Проверить WebApp</button>
-  </div>
-
+  <button class="btn-finish" onclick="sendZone()">✅ Завершить зону</button>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
   <script>
-    function sendTest() {
-      console.log("🔍 Telegram.WebApp = ", Telegram.WebApp);
-      alert("✅ WebApp объект " + (Telegram.WebApp ? "СУЩЕСТВУЕТ ✅" : "НЕ найден ❌"));
+    const params = new URLSearchParams(window.location.search);
+    const city = params.get("city");
 
-      if (Telegram.WebApp) {
-        Telegram.WebApp.ready();
-        Telegram.WebApp.sendData(JSON.stringify({ test: "yes" }));
-        Telegram.WebApp.close();
+    const map = L.map("map").setView([55.75, 37.61], 12);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    if (city) {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (TelegramWebAppBot)"
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 13);
+          } else {
+            alert("❌ Город не найден");
+          }
+        })
+        .catch(err => alert("Ошибка загрузки координат города: " + err.message));
+    }
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        marker: false,
+        circlemarker: false
+      },
+      edit: {
+        featureGroup: drawnItems
       }
+    });
+    map.addControl(drawControl);
+
+    map.on(L.Draw.Event.CREATED, function (event) {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(event.layer);
+    });
+
+    function sendZone() {
+      const data = drawnItems.toGeoJSON();
+      if (!data.features.length) {
+        alert("⚠️ Сначала выделите зону на карте.");
+        return;
+      }
+
+      const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lon, lat }));
+      const payload = { city, zone };
+
+      console.log("📤 Отправка на сервер:", payload);
+
+      fetch("http://localhost:8000/save-zone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(response => response.json())
+        .then(result => {
+          alert("✅ Зона сохранена: " + result.status);
+        })
+        .catch(error => {
+          alert("❌ Ошибка при отправке: " + error.message);
+        });
     }
   </script>
 </body>
