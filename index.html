@@ -91,7 +91,7 @@
 
       console.log("📤 Отправка на сервер:", payload);
 
-      fetch("http://192.168.1.45:8000/save-zone",  {
+      fetch("https://web-production-3661.up.railway.app/save-zone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
