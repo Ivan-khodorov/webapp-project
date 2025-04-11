@@ -36,9 +36,16 @@
     const telegramId = user.id || 0;
 
     // start_param формата "admin-Томск" или "worker-Казань"
-    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "worker-Москва";
-    const [mode, cityRaw] = startParam.split("-");
-    const city = cityRaw || "Москва";
+    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "";
+    let mode = "worker";
+    let city = "Москва";
+
+    if (startParam.includes("-")) {
+      [mode, city] = startParam.split("-");
+      city = city.trim();
+      mode = mode.trim();
+    }
+
     const isAdmin = mode === "admin";
 
     console.log("🧾 Город:", city, "🧑‍💼 Роль:", mode, "🆔 Telegram ID:", telegramId);
@@ -98,7 +105,6 @@
         }
       });
 
-    // Отправка зоны (для админа)
     function sendZone() {
       const data = drawnItems.toGeoJSON();
       if (!data.features.length) {
