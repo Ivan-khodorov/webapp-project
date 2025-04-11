@@ -30,10 +30,18 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const city = params.get("city") || "Москва";
-    const mode = params.get("mode") || "worker";
-    const telegramId = window.Telegram.WebApp?.initDataUnsafe?.user?.id || 123;
+    Telegram.WebApp.ready();
+
+    const user = Telegram.WebApp.initDataUnsafe?.user || {};
+    const telegramId = user.id || 0;
+
+    // start_param формата "admin-Томск" или "worker-Казань"
+    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "worker-Москва";
+    const [mode, cityRaw] = startParam.split("-");
+    const city = cityRaw || "Москва";
+    const isAdmin = mode === "admin";
+
+    console.log("🧾 Город:", city, "🧑‍💼 Роль:", mode, "🆔 Telegram ID:", telegramId);
 
     const map = L.map("map").setView([55.75, 37.61], 13);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -43,7 +51,7 @@
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
-    if (mode === "admin") {
+    if (isAdmin) {
       document.getElementById("finishBtn").style.display = "block";
 
       const drawControl = new L.Control.Draw({
@@ -68,6 +76,7 @@
       document.getElementById("finishBtn").style.display = "none";
     }
 
+    // Центровка по городу
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
       .then(res => res.json())
       .then(data => {
@@ -78,7 +87,7 @@
         }
       });
 
-    // 🚩 Загрузка зоны из API (если есть)
+    // Загрузка существующей зоны
     fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
       .then(res => res.json())
       .then(json => {
@@ -89,6 +98,7 @@
         }
       });
 
+    // Отправка зоны (для админа)
     function sendZone() {
       const data = drawnItems.toGeoJSON();
       if (!data.features.length) {
