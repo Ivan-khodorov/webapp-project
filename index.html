@@ -29,21 +29,43 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-  <script>
-    Telegram.WebApp.ready();
+ <script>
+  Telegram.WebApp.ready();
 
-    const user = Telegram.WebApp.initDataUnsafe?.user || {};
-    const telegramId = user.id || 0;
+  let city = "Москва";
+  let mode = "worker";
+  let telegramId = 0;
 
-    // Получаем start_param: "admin-Томск" или "worker-Казань"
-    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "worker-Москва";
-    const [modeRaw, ...cityParts] = startParam.replace("startapp=", "").split("-");
-    const mode = modeRaw.toLowerCase();
-    const city = cityParts.join("-").trim() || "Москва";
+  // ✅ 1. Попробуем сразу взять startapp из URL-параметра
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("startapp")) {
+    const [modeParam, cityParam] = urlParams.get("startapp").split("-");
+    city = cityParam || city;
+    mode = modeParam || mode;
+    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
+
+    console.log("🌍 Получено из URL:", { city, mode, telegramId });
+    setupMap();  // запускаем карту
+  }
+
+  // ✅ 2. Обработка данных от sendData
+  Telegram.WebApp.onEvent("web_app_data", function (event) {
+    try {
+      const data = JSON.parse(event.data);
+      city = data.city || city;
+      mode = data.role || mode;
+      telegramId = data.telegram_id || 0;
+
+      console.log("📦 Получено из sendData:", { city, mode, telegramId });
+      setupMap();
+    } catch (e) {
+      alert("Ошибка при обработке данных от бота: " + e.message);
+    }
+  });
+
+  // 🗺 Инициализация карты
+  function setupMap() {
     const isAdmin = mode === "admin";
-
-    console.log("🌍 Роль:", mode, "| Город:", city, "| ID:", telegramId);
-
     const map = L.map("map").setView([55.75, 37.61], 13);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors"
@@ -54,7 +76,6 @@
 
     if (isAdmin) {
       document.getElementById("finishBtn").style.display = "block";
-
       const drawControl = new L.Control.Draw({
         draw: {
           polyline: false,
@@ -86,7 +107,7 @@
         }
       });
 
-    // Загрузка уже отрисованной зоны
+    // Загрузка уже сохранённой зоны
     fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
       .then(res => res.json())
       .then(json => {
@@ -97,8 +118,8 @@
         }
       });
 
-    // Только админ может отправить зону
-    function sendZone() {
+    // Сохранение зоны (только админ)
+    window.sendZone = function () {
       if (!isAdmin) return;
 
       const data = drawnItems.toGeoJSON();
@@ -123,6 +144,7 @@
           alert("❌ Ошибка при отправке: " + err.message);
         });
     }
-  </script>
+  }
+</script>
 </body>
 </html>
