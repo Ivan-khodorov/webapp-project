@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Карта зон</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -32,99 +32,96 @@
   <script>
     Telegram.WebApp.ready();
 
-    let city = "Москва";
-    let mode = "worker";
-    let telegramId = 0;
+    const user = Telegram.WebApp.initDataUnsafe?.user || {};
+    const telegramId = user.id || 0;
 
-    Telegram.WebApp.onEvent("web_app_data", function (event) {
-      try {
-        const data = JSON.parse(event.data);
-        city = data.city || city;
-        mode = data.role || mode;
-        telegramId = data.telegram_id || 0;
+    // 🎯 Получаем startapp вида "admin-Томск" или "worker-Казань"
+    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "worker-Москва";
+    const [mode, ...cityParts] = startParam.replace("startapp=", "").split("-");
+    const city = cityParts.join("-").trim() || "Москва";
+    const isAdmin = mode === "admin";
 
-        console.log("📦 Получены данные из бота:", { city, mode, telegramId });
+    console.log("🌍 Роль:", mode, "| Город:", city, "| ID:", telegramId);
 
-        setupMap();
-      } catch (e) {
-        alert("Ошибка при разборе данных от бота: " + e.message);
-      }
-    });
+    const map = L.map("map").setView([55.75, 37.61], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
 
-    function setupMap() {
-      const map = L.map("map").setView([55.75, 37.61], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(map);
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
 
-      const drawnItems = new L.FeatureGroup();
-      map.addLayer(drawnItems);
+    if (isAdmin) {
+      document.getElementById("finishBtn").style.display = "block";
 
-      if (mode === "admin") {
-        document.getElementById("finishBtn").style.display = "block";
-        const drawControl = new L.Control.Draw({
-          draw: {
-            polyline: false,
-            rectangle: false,
-            circle: false,
-            marker: false,
-            circlemarker: false
-          },
-          edit: { featureGroup: drawnItems }
-        });
-        map.addControl(drawControl);
-
-        map.on(L.Draw.Event.CREATED, function (event) {
-          drawnItems.clearLayers();
-          drawnItems.addLayer(event.layer);
-        });
-      } else {
-        document.getElementById("finishBtn").style.display = "none";
-      }
-
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            map.setView([lat, lon], 13);
-          }
-        });
-
-      fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.zone && Array.isArray(json.zone)) {
-            const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
-            const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
-            map.fitBounds(polygon.getBounds());
-          }
-        });
-
-      window.sendZone = function () {
-        const data = drawnItems.toGeoJSON();
-        if (!data.features.length) {
-          alert("⚠️ Сначала выделите зону на карте.");
-          return;
+      const drawControl = new L.Control.Draw({
+        draw: {
+          polyline: false,
+          rectangle: false,
+          circle: false,
+          marker: false,
+          circlemarker: false,
+          polygon: { allowIntersection: false }
+        },
+        edit: {
+          featureGroup: drawnItems
         }
+      });
+      map.addControl(drawControl);
 
-        const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
-        const payload = { city, zone, telegram_id: telegramId };
+      map.on(L.Draw.Event.CREATED, function (event) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(event.layer);
+      });
+    } else {
+      document.getElementById("finishBtn").style.display = "none";
+    }
 
-        fetch("https://backend-nixpackspythonversion311.up.railway.app/save-zone", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        })
-          .then(res => res.json())
-          .then(result => {
-            alert("✅ Зона сохранена: " + result.status);
-          })
-          .catch(err => {
-            alert("❌ Ошибка при отправке: " + err.message);
-          });
+    // 🔍 Центровка карты по городу
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          map.setView([lat, lon], 13);
+        }
+      });
+
+    // 📥 Загрузка существующей зоны
+    fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.zone && Array.isArray(json.zone)) {
+          const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
+          const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
+          map.fitBounds(polygon.getBounds());
+        }
+      });
+
+    // 🚀 Отправка зоны на сервер
+    function sendZone() {
+      const data = drawnItems.toGeoJSON();
+      if (!data.features.length) {
+        alert("⚠️ Сначала выделите зону на карте.");
+        return;
       }
+
+      const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
+      const payload = { city, zone, telegram_id: telegramId };
+
+      fetch("https://backend-nixpackspythonversion311.up.railway.app/save-zone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(result => {
+          alert("✅ Зона сохранена: " + result.status);
+        })
+        .catch(err => {
+          alert("❌ Ошибка при отправке: " + err.message);
+        });
     }
   </script>
 </body>
