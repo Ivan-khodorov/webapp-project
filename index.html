@@ -31,8 +31,8 @@
 <script>
   const params = new URLSearchParams(window.location.search);
   const city = params.get("city");
-  const telegramId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
-
+  const telegramId = 2078828439;
+  
   const map = L.map("map").setView([55.75, 37.61], 12);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
