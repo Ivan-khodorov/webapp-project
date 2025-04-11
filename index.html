@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Выбор зоны распространения</title>
+  <title>Карта зон</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
@@ -24,62 +24,71 @@
   </style>
 </head>
 <body>
-<button class="btn-finish" onclick="sendZone()">✅ Завершить зону</button>
+<button class="btn-finish" id="btn-finish" onclick="sendZone()">✅ Завершить зону</button>
 <div id="map"></div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
 <script>
   const params = new URLSearchParams(window.location.search);
   const city = params.get("city");
   const telegramId = 2078828439;
-  
-  const map = L.map("map").setView([55.75, 37.61], 12);
+  const isAdmin = params.get("mode") === "admin";
 
+  if (!isAdmin) {
+    document.getElementById("btn-finish").style.display = "none";
+  }
+
+  const map = L.map("map").setView([55.75, 37.61], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors"
   }).addTo(map);
 
-  if (city) {
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`, {
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (TelegramWebAppBot)"
-      }
-    })
-            .then(res => res.json())
-            .then(data => {
-              if (data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                map.setView([lat, lon], 13);
-              } else {
-                alert("❌ Город не найден");
-              }
-            })
-            .catch(err => alert("Ошибка загрузки координат города: " + err.message));
-  }
-
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
-  const drawControl = new L.Control.Draw({
-    draw: {
-      polyline: false,
-      rectangle: false,
-      circle: false,
-      marker: false,
-      circlemarker: false
-    },
-    edit: {
-      featureGroup: drawnItems
-    }
-  });
-  map.addControl(drawControl);
+  if (isAdmin) {
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        marker: false,
+        circlemarker: false
+      },
+      edit: {
+        featureGroup: drawnItems
+      }
+    });
+    map.addControl(drawControl);
 
-  map.on(L.Draw.Event.CREATED, function (event) {
-    drawnItems.clearLayers();
-    drawnItems.addLayer(event.layer);
-  });
+    map.on(L.Draw.Event.CREATED, function (event) {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(event.layer);
+    });
+  }
+
+  if (city) {
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          map.setView([lat, lon], 13);
+
+          fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
+            .then(r => r.json())
+            .then(json => {
+              if (json.zone && Array.isArray(json.zone)) {
+                const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
+                const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
+                map.fitBounds(polygon.getBounds());
+              }
+            });
+        }
+      });
+  }
 
   function sendZone() {
     const data = drawnItems.toGeoJSON();
@@ -90,26 +99,14 @@
 
     const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
 
-    const payload = {
-      city,
-      zone,
-      telegram_id: telegramId
-    };
-
-    console.log("📤 Отправка на сервер:", payload);
-
     fetch("https://backend-nixpackspythonversion311.up.railway.app/save-zone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ city, zone, telegram_id: telegramId })
     })
-            .then(response => response.json())
-            .then(result => {
-              alert("✅ Зона сохранена: " + result.status);
-            })
-            .catch(error => {
-              alert("❌ Ошибка при отправке: " + error.message);
-            });
+      .then(r => r.json())
+      .then(res => alert("✅ Зона сохранена: " + res.status))
+      .catch(err => alert("❌ Ошибка: " + err.message));
   }
 </script>
 </body>
