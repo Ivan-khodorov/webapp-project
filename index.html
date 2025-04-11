@@ -32,101 +32,99 @@
   <script>
     Telegram.WebApp.ready();
 
-    const user = Telegram.WebApp.initDataUnsafe?.user || {};
-    const telegramId = user.id || 0;
-
-    // start_param формата "admin-Томск" или "worker-Казань"
-    const startParam = Telegram.WebApp.initDataUnsafe?.start_param || "";
-    let mode = "worker";
     let city = "Москва";
+    let mode = "worker";
+    let telegramId = 0;
 
-    if (startParam.includes("-")) {
-      [mode, city] = startParam.split("-");
-      city = city.trim();
-      mode = mode.trim();
-    }
+    Telegram.WebApp.onEvent("web_app_data", function (event) {
+      try {
+        const data = JSON.parse(event.data);
+        city = data.city || city;
+        mode = data.role || mode;
+        telegramId = data.telegram_id || 0;
 
-    const isAdmin = mode === "admin";
+        console.log("📦 Получены данные из бота:", { city, mode, telegramId });
 
-    console.log("🧾 Город:", city, "🧑‍💼 Роль:", mode, "🆔 Telegram ID:", telegramId);
+        setupMap();
+      } catch (e) {
+        alert("Ошибка при разборе данных от бота: " + e.message);
+      }
+    });
 
-    const map = L.map("map").setView([55.75, 37.61], 13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
+    function setupMap() {
+      const map = L.map("map").setView([55.75, 37.61], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
 
-    const drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
+      const drawnItems = new L.FeatureGroup();
+      map.addLayer(drawnItems);
 
-    if (isAdmin) {
-      document.getElementById("finishBtn").style.display = "block";
+      if (mode === "admin") {
+        document.getElementById("finishBtn").style.display = "block";
+        const drawControl = new L.Control.Draw({
+          draw: {
+            polyline: false,
+            rectangle: false,
+            circle: false,
+            marker: false,
+            circlemarker: false
+          },
+          edit: { featureGroup: drawnItems }
+        });
+        map.addControl(drawControl);
 
-      const drawControl = new L.Control.Draw({
-        draw: {
-          polyline: false,
-          rectangle: false,
-          circle: false,
-          marker: false,
-          circlemarker: false
-        },
-        edit: {
-          featureGroup: drawnItems
-        }
-      });
-      map.addControl(drawControl);
-
-      map.on(L.Draw.Event.CREATED, function (event) {
-        drawnItems.clearLayers();
-        drawnItems.addLayer(event.layer);
-      });
-    } else {
-      document.getElementById("finishBtn").style.display = "none";
-    }
-
-    // Центровка по городу
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.length > 0) {
-          const lat = parseFloat(data[0].lat);
-          const lon = parseFloat(data[0].lon);
-          map.setView([lat, lon], 13);
-        }
-      });
-
-    // Загрузка существующей зоны
-    fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
-      .then(res => res.json())
-      .then(json => {
-        if (json.zone && Array.isArray(json.zone)) {
-          const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
-          const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
-          map.fitBounds(polygon.getBounds());
-        }
-      });
-
-    function sendZone() {
-      const data = drawnItems.toGeoJSON();
-      if (!data.features.length) {
-        alert("⚠️ Сначала выделите зону на карте.");
-        return;
+        map.on(L.Draw.Event.CREATED, function (event) {
+          drawnItems.clearLayers();
+          drawnItems.addLayer(event.layer);
+        });
+      } else {
+        document.getElementById("finishBtn").style.display = "none";
       }
 
-      const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
-      const payload = { city, zone, telegram_id: telegramId };
-
-      fetch("https://backend-nixpackspythonversion311.up.railway.app/save-zone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
         .then(res => res.json())
-        .then(result => {
-          alert("✅ Зона сохранена: " + result.status);
-        })
-        .catch(err => {
-          alert("❌ Ошибка при отправке: " + err.message);
+        .then(data => {
+          if (data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 13);
+          }
         });
+
+      fetch(`https://backend-nixpackspythonversion311.up.railway.app/zones/${city}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.zone && Array.isArray(json.zone)) {
+            const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
+            const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
+            map.fitBounds(polygon.getBounds());
+          }
+        });
+
+      window.sendZone = function () {
+        const data = drawnItems.toGeoJSON();
+        if (!data.features.length) {
+          alert("⚠️ Сначала выделите зону на карте.");
+          return;
+        }
+
+        const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
+        const payload = { city, zone, telegram_id: telegramId };
+
+        fetch("https://backend-nixpackspythonversion311.up.railway.app/save-zone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+          .then(res => res.json())
+          .then(result => {
+            alert("✅ Зона сохранена: " + result.status);
+          })
+          .catch(err => {
+            alert("❌ Ошибка при отправке: " + err.message);
+          });
+      }
     }
   </script>
 </body>
