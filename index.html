@@ -9,145 +9,228 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
-    .btn-finish {
+    .controls {
       position: absolute;
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      background: green;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
       z-index: 999;
+      display: flex;
+      gap: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
-  <button class="btn-finish" id="finishBtn" onclick="sendZone()">✅ Завершить зону</button>
+  <div class="controls">
+    <label>📅 <input type="date" id="dateStart" /></label>
+    <label>📅 <input type="date" id="dateEnd" /></label>
+    <button onclick="sendZone()">✅ Завершить зону</button>
+  </div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-  <script>
-    Telegram.WebApp.ready();
+ <script>
+  Telegram.WebApp.ready();
 
-    let city = "Москва";
-    let mode = "worker";
-    let telegramId = 0;
-    let drawnItems;
+  let city = "Москва";
+  let mode = "worker";
+  let telegramId = 0;
+  let drawnItems;
+  let map;
+  let socket;
+  let markers = [];
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has("startapp")) {
-      const [modeParam, cityParam] = urlParams.get("startapp").split("-");
-      city = cityParam || city;
-      mode = modeParam || mode;
-      telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("startapp")) {
+    const [modeParam, cityParam] = urlParams.get("startapp").split("-");
+    city = cityParam || city;
+    mode = modeParam || mode;
+    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
+    setupMap();
+  }
 
-      setupMap();
+
+  function setupMap() {
+    const isAdmin = mode === "admin";
+    map = L.map("map").setView([55.75, 37.61], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    if (isAdmin) {
+      const drawControl = new L.Control.Draw({
+        draw: {
+          polyline: false,
+          rectangle: false,
+          circle: false,
+          marker: false,
+          circlemarker: false
+        },
+        edit: { featureGroup: drawnItems }
+      });
+      map.addControl(drawControl);
+
+      map.on(L.Draw.Event.CREATED, function (event) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(event.layer);
+      });
     }
 
-    function setupMap() {
-      const isAdmin = mode === "admin";
-      const map = L.map("map").setView([55.75, 37.61], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(map);
+    centerOnCity();
+    connectWebSocket();
+    loadExistingZones();
+    loadExistingPoints();
+  }
 
-      drawnItems = new L.FeatureGroup();
-      map.addLayer(drawnItems);
+  function centerOnCity() {
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.length > 0) {
+          map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 13);
+        }
+      });
+  }
 
-      if (isAdmin) {
-        document.getElementById("finishBtn").style.display = "block";
-        const drawControl = new L.Control.Draw({
-          draw: {
-            polyline: false,
-            rectangle: false,
-            circle: false,
-            marker: false,
-            circlemarker: false
-          },
-          edit: { featureGroup: drawnItems }
-        });
-        map.addControl(drawControl);
 
-        map.on(L.Draw.Event.CREATED, function (event) {
-          drawnItems.addLayer(event.layer); // ✅ НЕ удаляем другие зоны
-        });
-      } else {
-        document.getElementById("finishBtn").style.display = "none";
-      }
+  function connectWebSocket() {
+    const wsUrl = `wss://backend-production-671b.up.railway.app/ws/${city}`;
+    socket = new WebSocket(wsUrl);
 
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lon = parseFloat(data[0].lon);
-            map.setView([lat, lon], 13);
-          }
-        });
+    socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
 
-      fetch(`https://backend-production-671b.up.railway.app/zones/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.zone && Array.isArray(json.zone)) {
-            const polygonCoords = json.zone.map(p => [p.lat, p.lon]);
-            const polygon = L.polygon(polygonCoords, { color: "red" }).addTo(map);
-            map.fitBounds(polygon.getBounds());
-          }
-        });
+    socket.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  console.log("📥 WS сообщение:", msg);
 
-      fetch(`https://backend-production-671b.up.railway.app/points/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.points) {
-            for (const p of json.points) {
-              const marker = L.circleMarker([p.lat, p.lon], {
-                radius: 8,
-                color: "blue"
-              }).addTo(map);
+if (msg.type === "new_point") {
+  const p = msg.data;
+  const marker = L.circleMarker([p.lat, p.lon], {
+    radius: 8,
+    color: "blue"
+  }).addTo(map);
 
-              const html = `
-                <b>📬 Листовок:</b> ${p.flyer_count}<br>
-                <b>👤 Работник:</b> ${p.username}<br>
-                <b>🕒 Время:</b> ${p.created_at}<br>
-                <b>#️⃣ Точка №:</b> ${p.order}
-              `;
-              marker.bindPopup(html);
+  marker.bindPopup(`
+    <b>📬 Листовок:</b> ${p.flyer_count}<br>
+    <b>👤:</b> ${p.username}<br>
+    <b>🕒:</b> ${p.created_at}<br>
+    <b>#️⃣:</b> ${p.order}
+  `);
+
+  marker._flyerId = p.id;
+  markers.push(marker);
+}
+
+  if (msg.type === "remove_point") {
+  const id = msg.data.id;
+  const index = markers.findIndex(m => m._flyerId === id);
+  if (index !== -1) {
+    map.removeLayer(markers[index]);
+    markers.splice(index, 1);
+    console.log(`🗑 Маркер #${id} удалён`);
+  }
+}
+
+  if (msg.type === "new_zone") {
+    const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
+    const poly = L.polygon(coords, { color: "red" }).addTo(map);
+    poly.bindTooltip(`Зона №${msg.data.zone_number}<br>🗓 ${msg.data.date_start} – ${msg.data.date_end}`);
+  }
+};
+    socket.onclose = () => {
+      console.warn("🔌 WebSocket отключён. Переподключаем...");
+      setTimeout(connectWebSocket, 3000);
+    };
+  }
+
+  function loadExistingZones() {
+    fetch(`https://backend-production-671b.up.railway.app/zones/${city}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.status === "ok" && Array.isArray(json.zones)) {
+          for (const zone of json.zones) {
+            const coords = zone.polygon_coords.map(p => [p.lat, p.lon]);
+            const poly = L.polygon(coords, { color: "red" }).addTo(map);
+            if (zone.zone_number && zone.date_start && zone.date_end) {
+              poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
             }
           }
-        });
+        }
+      });
+  }
+
+  function loadExistingPoints() {
+    fetch(`https://backend-production-671b.up.railway.app/points/${city}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.points) {
+          for (const p of json.points) {
+            const marker = L.circleMarker([p.lat, p.lon], {
+              radius: 8,
+              color: "blue"
+            }).addTo(map);
+            const html = `
+              <b>📬 Листовок:</b> ${p.flyer_count}<br>
+              <b>👤 Работник:</b> ${p.username}<br>
+              <b>🕒 Время:</b> ${p.created_at}<br>
+              <b>#️⃣ Точка №:</b> ${p.order}
+            `;
+            marker.bindPopup(html);
+          }
+        }
+      });
+  }
+
+  // Отправка новой зоны
+  window.sendZone = function () {
+    const features = drawnItems.toGeoJSON();
+    if (!features.features.length) {
+      alert("⚠️ Нарисуйте зону.");
+      return;
     }
 
-    window.sendZone = function () {
-      if (mode !== "admin") return;
+    const start = document.getElementById("dateStart").value;
+    const end = document.getElementById("dateEnd").value;
+    if (!start || !end) {
+      alert("⏱ Укажите даты выполнения зоны.");
+      return;
+    }
 
-      const data = drawnItems.toGeoJSON();
-      if (!data.features.length) {
-        alert("⚠️ Сначала выделите хотя бы одну зону.");
-        return;
-      }
+    const polygon = features.features[0].geometry.coordinates[0]
+      .map(([lon, lat]) => ({ lat, lon }));
 
-      const zones = data.features.map(f =>
-        f.geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }))
-      );
-
-      const payload = { city, zones, telegram_id: telegramId };
-
-      fetch("https://backend-production-671b.up.railway.app/save-zone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-        .then(res => res.json())
-        .then(result => {
-          alert("✅ Зоны сохранены: " + result.status);
-        })
-        .catch(err => {
-          alert("❌ Ошибка при отправке: " + err.message);
-        });
+    const payload = {
+      city,
+      polygon,
+      date_start: start,
+      date_end: end,
+      telegram_id: telegramId
     };
-  </script>
+
+    fetch("https://backend-production-671b.up.railway.app/save-zone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(result => {
+      alert("✅ Зона сохранена: #" + result.zone_number);
+      Telegram.WebApp.close();
+    })
+    .catch(err => {
+      alert("❌ Ошибка: " + err.message);
+    });
+  };
+</script>
+
+
 </body>
 </html>
