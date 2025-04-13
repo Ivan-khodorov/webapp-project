@@ -35,6 +35,7 @@
     let city = "Москва";
     let mode = "worker";
     let telegramId = 0;
+    let drawnItems;
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has("startapp")) {
@@ -43,7 +44,6 @@
       mode = modeParam || mode;
       telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
 
-      console.log("🌍 Получено из URL:", { city, mode, telegramId });
       setupMap();
     }
 
@@ -54,7 +54,7 @@
         attribution: "&copy; OpenStreetMap contributors"
       }).addTo(map);
 
-      const drawnItems = new L.FeatureGroup();
+      drawnItems = new L.FeatureGroup();
       map.addLayer(drawnItems);
 
       if (isAdmin) {
@@ -72,14 +72,12 @@
         map.addControl(drawControl);
 
         map.on(L.Draw.Event.CREATED, function (event) {
-          drawnItems.clearLayers();
-          drawnItems.addLayer(event.layer);
+          drawnItems.addLayer(event.layer); // ✅ НЕ удаляем другие зоны
         });
       } else {
         document.getElementById("finishBtn").style.display = "none";
       }
 
-      // Центрируем по городу
       fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
         .then(res => res.json())
         .then(data => {
@@ -90,7 +88,6 @@
           }
         });
 
-      // Загружаем зоны
       fetch(`https://backend-production-671b.up.railway.app/zones/${city}`)
         .then(res => res.json())
         .then(json => {
@@ -101,7 +98,6 @@
           }
         });
 
-      // Загружаем точки
       fetch(`https://backend-production-671b.up.railway.app/points/${city}`)
         .then(res => res.json())
         .then(json => {
@@ -125,17 +121,19 @@
     }
 
     window.sendZone = function () {
-      const isAdmin = mode === "admin";
-      if (!isAdmin) return;
+      if (mode !== "admin") return;
 
       const data = drawnItems.toGeoJSON();
       if (!data.features.length) {
-        alert("⚠️ Сначала выделите зону на карте.");
+        alert("⚠️ Сначала выделите хотя бы одну зону.");
         return;
       }
 
-      const zone = data.features[0].geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
-      const payload = { city, zone, telegram_id: telegramId };
+      const zones = data.features.map(f =>
+        f.geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }))
+      );
+
+      const payload = { city, zones, telegram_id: telegramId };
 
       fetch("https://backend-production-671b.up.railway.app/save-zone", {
         method: "POST",
@@ -144,7 +142,7 @@
       })
         .then(res => res.json())
         .then(result => {
-          alert("✅ Зона сохранена: " + result.status);
+          alert("✅ Зоны сохранены: " + result.status);
         })
         .catch(err => {
           alert("❌ Ошибка при отправке: " + err.message);
