@@ -1,3 +1,12 @@
-"scripts": {
-  "build": "vite build"
+{
+  "name": "webapp-project",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vite": "^4.5.0"
+  }
 }
