@@ -107,37 +107,37 @@
 
     socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
 
-    socket.onmessage = (event) => {
+socket.onmessage = (event) => {
   const msg = JSON.parse(event.data);
   console.log("📥 WS сообщение:", msg);
 
-if (msg.type === "new_point") {
-  const p = msg.data;
-  const marker = L.circleMarker([p.lat, p.lon], {
-    radius: 8,
-    color: "blue"
-  }).addTo(map);
+  if (msg.type === "new_point") {
+    const p = msg.data;
+    const marker = L.circleMarker([p.lat, p.lon], {
+      radius: 8,
+      color: "blue"
+    }).addTo(map);
 
-  marker.bindPopup(`
-    <b>📬 Листовок:</b> ${p.flyer_count}<br>
-    <b>👤:</b> ${p.username}<br>
-    <b>🕒:</b> ${p.created_at}<br>
-    <b>#️⃣:</b> ${p.order}
-  `);
+    marker.bindPopup(`
+      <b>📬 Листовок:</b> ${p.flyer_count}<br>
+      <b>👤:</b> ${p.username}<br>
+      <b>🕒:</b> ${p.created_at}<br>
+      <b>#️⃣:</b> ${p.order}
+    `);
 
-  marker._flyerId = p.id;
-  markers.push(marker);
-}
+    marker._flyerId = p.id;
+    markers.push(marker);
+  }
 
   if (msg.type === "remove_point") {
-  const id = msg.data.id;
-  const index = markers.findIndex(m => m._flyerId === id);
-  if (index !== -1) {
-    map.removeLayer(markers[index]);
-    markers.splice(index, 1);
-    console.log(`🗑 Маркер #${id} удалён`);
+    const id = msg.data.id;
+    const index = markers.findIndex(m => m._flyerId === id);
+    if (index !== -1) {
+      map.removeLayer(markers[index]);
+      markers.splice(index, 1);
+      console.log(`🗑 Маркер #${id} удалён`);
+    }
   }
-}
 
   if (msg.type === "new_zone") {
     const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
