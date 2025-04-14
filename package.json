@@ -5,7 +5,7 @@
     "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "start": "vite preview --port 8000"
+    "start": "vite preview --port 8000 --host"
   },
   "dependencies": {
     "vite": "^4.5.0"
