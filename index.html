@@ -134,11 +134,11 @@
     <b>🕒:</b> ${p.created_at}<br>
     <b>#️⃣:</b> ${p.order}
   `);
-    
+
   markers.push(marker);
 }
 
-
+};
       socket.onclose = () => {
         console.warn("🔌 WebSocket отключён. Переподключаем...");
         setTimeout(connectWebSocket, 3000);
