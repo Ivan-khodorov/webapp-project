@@ -105,82 +105,68 @@
         });
     }
 
-    function connectWebSocket() {
-      const wsUrl = `wss://humorous-tranquility-nixpackspythonversion311.up.railway.app/ws/${city}`;
-      socket = new WebSocket(wsUrl);
 
-      socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
+            function connectWebSocket() {
+              const wsUrl = `wss://humorous-tranquility-nixpackspythonversion311.up.railway.app/ws/${city}`;
+              socket = new WebSocket(wsUrl);
 
-      socket.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        console.log("📥 WS сообщение:", msg);
+              socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
 
-        if (msg.type === "new_zone") {
-          const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
-          const poly = L.polygon(coords, { color: "red" }).addTo(map);
-          poly.bindTooltip(`Зона №${msg.data.zone_number}<br>🗓 ${msg.data.date_start} – ${msg.data.date_end}`);
-        }
+              socket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                console.log("📥 WS сообщение:", msg);
 
-        if (msg.type === "new_point") {
-          const p = msg.data;
-          const marker = L.circleMarker([p.lat, p.lon], {
-            radius: 8,
-            color: "blue"
-          }).addTo(map);
-          marker.bindPopup(`
-            <b>📬 Листовок:</b> ${p.flyer_count}<br>
-            <b>👤:</b> ${p.username}<br>
-            <b>🕒:</b> ${p.created_at}<br>
-            <b>#️⃣:</b> ${p.order}
-          `);
-          markers.push(marker);
-        }
-      };
+                if (msg.type === "new_point") {
+                  const p = msg.data;
+                  const marker = L.circleMarker([p.lat, p.lon], {
+                    radius: 8,
+                    color: "blue"
+                  }).addTo(map);
 
-      socket.onclose = () => {
-        console.warn("🔌 WebSocket отключён. Переподключаем...");
-        setTimeout(connectWebSocket, 3000);
-      };
-    }
+                  marker.bindPopup(`
+                    <b>📬 Листовок:</b> ${p.flyer_count}<br>
+                    <b>👤:</b> ${p.username}<br>
+                    <b>🕒:</b> ${p.created_at}<br>
+                    <b>#️⃣:</b> ${p.order}
+                  `);
+                }
 
-    function loadExistingZones() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.status === "ok" && Array.isArray(json.zones)) {
-            for (const zone of json.zones) {
-              const coords = zone.polygon.map(p => [p.lat, p.lon]);
-              const poly = L.polygon(coords, { color: "red" }).addTo(map);
-              if (zone.zone_number && zone.date_start && zone.date_end) {
-                poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
-              }
+                if (msg.type === "new_zone") {
+                  const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
+                  const poly = L.polygon(coords, { color: "red" }).addTo(map);
+                  poly.bindTooltip(`Зона №${msg.data.zone_number}<br>🗓 ${msg.data.date_start} – ${msg.data.date_end}`);
+                }
+              };
+
+              socket.onclose = () => {
+                console.warn("🔌 WebSocket отключён. Переподключаем...");
+                setTimeout(connectWebSocket, 3000);
+              };
             }
-          }
-        });
-    }
 
-    function loadExistingPoints() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.points) {
-            for (const p of json.points) {
-              const marker = L.circleMarker([p.lat, p.lon], {
-                radius: 8,
-                color: "blue"
-              }).addTo(map);
-              const html = `
-                <b>📬 Листовок:</b> ${p.flyer_count}<br>
-                <b>👤 Работник:</b> ${p.username}<br>
-                <b>🕒 Время:</b> ${p.created_at}<br>
-                <b>#️⃣ Точка №:</b> ${p.order}
-              `;
-              marker.bindPopup(html);
-              markers.push(marker);
+            function loadExistingPoints() {
+              fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
+                .then(res => res.json())
+                .then(json => {
+                  if (json.points) {
+                    for (const p of json.points) {
+                      const marker = L.circleMarker([p.lat, p.lon], {
+                        radius: 8,
+                        color: "blue"
+                      }).addTo(map);
+                      const html = `
+                        <b>📬 Листовок:</b> ${p.flyer_count}<br>
+                        <b>👤:</b> ${p.username}<br>
+                        <b>🕒:</b> ${p.created_at}<br>
+                        <b>#️⃣:</b> ${p.order}
+                      `;
+                      marker.bindPopup(html);
+                    }
+                  }
+                });
             }
-          }
-        });
-    }
+
+
 
     window.sendZone = function () {
       const features = drawnItems?.toGeoJSON?.();
