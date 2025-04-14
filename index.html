@@ -116,22 +116,22 @@
         console.log("📥 WS сообщение:", msg);
 
         if (msg.type === "new_point") {
-          const p = msg.data;
-          const marker = L.circleMarker([p.lat, p.lon], {
-            radius: 8,
-            color: "blue"
-          }).addTo(map);
+  const p = msg.data;
+  const marker = L.circleMarker([p.lat, p.lon], {
+    radius: 8,
+    color: "blue"
+  }).addTo(map);
 
-          marker.bindPopup(`
-            <b>📬 Листовок:</b> ${p.flyer_count}<br>
-            <b>👤:</b> ${p.username}<br>
-            <b>🕒:</b> ${p.created_at}<br>
-            <b>#️⃣:</b> ${p.order}
-          `);
+  marker.bindPopup(`
+    <b>📬 Листовок:</b> ${p.flyer_count}<br>
+    <b>👤:</b> ${p.username}<br>
+    <b>🕒:</b> ${p.created_at}<br>
+    <b>#️⃣:</b> ${p.order}
+  `);
 
-          marker._flyerId = p.id;
-          markers.push(marker);
-        }
+  marker._flyerId = p.id;
+  markers.push(marker);
+}
 
         if (msg.type === "remove_point") {
           const id = msg.data.id;
@@ -174,26 +174,26 @@
     }
 
     function loadExistingPoints() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.points) {
-            for (const p of json.points) {
-              const marker = L.circleMarker([p.lat, p.lon], {
-                radius: 8,
-                color: "blue"
-              }).addTo(map);
-              const html = `
-                <b>📬 Листовок:</b> ${p.flyer_count}<br>
-                <b>👤 Работник:</b> ${p.username}<br>
-                <b>🕒 Время:</b> ${p.created_at}<br>
-                <b>#️⃣ Точка №:</b> ${p.order}
-              `;
-              marker.bindPopup(html);
-            }
-          }
-        });
-    }
+  fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
+    .then(res => res.json())
+    .then(json => {
+      if (json.points) {
+        for (const p of json.points) {
+          const marker = L.circleMarker([p.lat, p.lon], {
+            radius: 8,
+            color: "blue"
+          }).addTo(map);
+          const html = `
+            <b>📬 Листовок:</b> ${p.flyer_count}<br>
+            <b>👤 Работник:</b> ${p.username}<br>
+            <b>🕒 Время:</b> ${p.created_at}<br>
+            <b>#️⃣ Точка №:</b> ${p.order}
+          `;
+          marker.bindPopup(html);
+        }
+      }
+    });
+}
 
     window.sendZone = function () {
       const features = drawnItems?.toGeoJSON?.();
