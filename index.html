@@ -102,7 +102,7 @@
 
 
   function connectWebSocket() {
-    const wsUrl = `wss://backend-production-671b.up.railway.app/ws/${city}`;
+    const wsUrl = `wss://humorous-tranquility-nixpackspythonversion311.up.railway.app/ws/${city}`;
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
@@ -152,7 +152,7 @@ if (msg.type === "new_point") {
   }
 
   function loadExistingZones() {
-    fetch(`https://backend-production-671b.up.railway.app/zones/${city}`)
+    fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
       .then(res => res.json())
       .then(json => {
         if (json.status === "ok" && Array.isArray(json.zones)) {
@@ -168,7 +168,7 @@ if (msg.type === "new_point") {
   }
 
   function loadExistingPoints() {
-    fetch(`https://backend-production-671b.up.railway.app/points/${city}`)
+    fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
       .then(res => res.json())
       .then(json => {
         if (json.points) {
@@ -215,7 +215,7 @@ if (msg.type === "new_point") {
       telegram_id: telegramId
     };
 
-    fetch("https://backend-production-671b.up.railway.app/save-zone", {
+    fetch("https://humorous-tranquility-nixpackspythonversion311.up.railway.app/save-zone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
