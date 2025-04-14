@@ -134,21 +134,11 @@
     <b>🕒:</b> ${p.created_at}<br>
     <b>#️⃣:</b> ${p.order}
   `);
-
-  marker._flyerId = p.id;
+    
   markers.push(marker);
 }
 
-  if (msg.type === "remove_point") {
-    const id = msg.data.id;
-    const index = markers.findIndex(m => m._flyerId === id);
-    if (index !== -1) {
-      map.removeLayer(markers[index]);
-      markers.splice(index, 1);
-      console.log(`🗑 Маркер #${id} удалён`);
-    }
-  }
-};
+
       socket.onclose = () => {
         console.warn("🔌 WebSocket отключён. Переподключаем...");
         setTimeout(connectWebSocket, 3000);
