@@ -122,22 +122,22 @@
   }
 
   if (msg.type === "new_point") {
-    const p = msg.data;
-    const marker = L.circleMarker([p.lat, p.lon], {
-      radius: 8,
-      color: "blue"
-    }).addTo(map);
+  const p = msg.data;
+  const marker = L.circleMarker([p.lat, p.lon], {
+    radius: 8,
+    color: "blue"
+  }).addTo(map);
 
-    marker.bindPopup(`
-      <b>📬 Листовок:</b> ${p.flyer_count}<br>
-      <b>👤:</b> ${p.username}<br>
-      <b>🕒:</b> ${p.created_at}<br>
-      <b>#️⃣:</b> ${p.order}
-    `);
+  marker.bindPopup(`
+    <b>📬 Листовок:</b> ${p.flyer_count}<br>
+    <b>👤:</b> ${p.username}<br>
+    <b>🕒:</b> ${p.created_at}<br>
+    <b>#️⃣:</b> ${p.order}
+  `);
 
-    marker._flyerId = p.id;
-    markers.push(marker);
-  }
+  marker._flyerId = p.id;
+  markers.push(marker);
+}
 
   if (msg.type === "remove_point") {
     const id = msg.data.id;
