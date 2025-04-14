@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -26,9 +27,9 @@
 </head>
 <body>
   <div class="controls" id="adminControls" style="display: none;">
-    <label>📅 <input type="date" id="dateStart" /></label>
-    <label>📅 <input type="date" id="dateEnd" /></label>
-    <button onclick="sendZone()">✅ Завершить зону</button>
+    <label><input type="date" id="dateStart" /></label>
+    <label><input type="date" id="dateEnd" /></label>
+    <button onclick="sendZone()">Завершить зону</button>
   </div>
   <div id="map"></div>
 
@@ -53,11 +54,10 @@
     }
 
     telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
-    setupMap();  // ГАРАНТИРОВАННЫЙ ВЫЗОВ
+    setupMap();
 
     function setupMap() {
       const isAdmin = mode === "admin";
-
       if (isAdmin) {
         document.getElementById("adminControls").style.display = "flex";
       }
@@ -111,34 +111,32 @@
 
       socket.onopen = () => console.log("🌐 WebSocket подключён:", wsUrl);
 
-  socket.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  console.log("📥 WS сообщение:", msg);
+      socket.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        console.log("📥 WS сообщение:", msg);
 
-  if (msg.type === "new_zone") {
-    const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
-    const poly = L.polygon(coords, { color: "red" }).addTo(map);
-    poly.bindTooltip(`Зона №${msg.data.zone_number}<br>🗓 ${msg.data.date_start} – ${msg.data.date_end}`);
-  }
+        if (msg.type === "new_zone") {
+          const coords = msg.data.polygon.map(p => [p.lat, p.lon]);
+          const poly = L.polygon(coords, { color: "red" }).addTo(map);
+          poly.bindTooltip(`Зона №${msg.data.zone_number}<br>🗓 ${msg.data.date_start} – ${msg.data.date_end}`);
+        }
 
-  if (msg.type === "new_point") {
-  const p = msg.data;
-  const marker = L.circleMarker([p.lat, p.lon], {
-    radius: 8,
-    color: "blue"
-  }).addTo(map);
+        if (msg.type === "new_point") {
+          const p = msg.data;
+          const marker = L.circleMarker([p.lat, p.lon], {
+            radius: 8,
+            color: "blue"
+          }).addTo(map);
+          marker.bindPopup(`
+            <b>📬 Листовок:</b> ${p.flyer_count}<br>
+            <b>👤:</b> ${p.username}<br>
+            <b>🕒:</b> ${p.created_at}<br>
+            <b>#️⃣:</b> ${p.order}
+          `);
+          markers.push(marker);
+        }
+      };
 
-  marker.bindPopup(`
-    <b>📬 Листовок:</b> ${p.flyer_count}<br>
-    <b>👤:</b> ${p.username}<br>
-    <b>🕒:</b> ${p.created_at}<br>
-    <b>#️⃣:</b> ${p.order}
-  `);
-
-  markers.push(marker);
-}
-
-};
       socket.onclose = () => {
         console.warn("🔌 WebSocket отключён. Переподключаем...");
         setTimeout(connectWebSocket, 3000);
@@ -149,7 +147,6 @@
       fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
         .then(res => res.json())
         .then(json => {
-          console.log("📦 Ответ от сервера (zones):", json);
           if (json.status === "ok" && Array.isArray(json.zones)) {
             for (const zone of json.zones) {
               const coords = zone.polygon.map(p => [p.lat, p.lon]);
@@ -163,26 +160,27 @@
     }
 
     function loadExistingPoints() {
-  fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
-    .then(res => res.json())
-    .then(json => {
-      if (json.points) {
-        for (const p of json.points) {
-          const marker = L.circleMarker([p.lat, p.lon], {
-            radius: 8,
-            color: "blue"
-          }).addTo(map);
-          const html = `
-            <b>📬 Листовок:</b> ${p.flyer_count}<br>
-            <b>👤 Работник:</b> ${p.username}<br>
-            <b>🕒 Время:</b> ${p.created_at}<br>
-            <b>#️⃣ Точка №:</b> ${p.order}
-          `;
-          marker.bindPopup(html);
-        }
-      }
-    });
-}
+      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.points) {
+            for (const p of json.points) {
+              const marker = L.circleMarker([p.lat, p.lon], {
+                radius: 8,
+                color: "blue"
+              }).addTo(map);
+              const html = `
+                <b>📬 Листовок:</b> ${p.flyer_count}<br>
+                <b>👤 Работник:</b> ${p.username}<br>
+                <b>🕒 Время:</b> ${p.created_at}<br>
+                <b>#️⃣ Точка №:</b> ${p.order}
+              `;
+              marker.bindPopup(html);
+              markers.push(marker);
+            }
+          }
+        });
+    }
 
     window.sendZone = function () {
       const features = drawnItems?.toGeoJSON?.();
