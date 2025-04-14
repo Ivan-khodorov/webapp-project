@@ -50,9 +50,9 @@
       const [modeParam, cityParam] = urlParams.get("startapp").split("-");
       city = cityParam || city;
       mode = modeParam || mode;
-      telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
-      setupMap();
     }
+    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
+    setupMap();  // ВЫЗЫВАЕМ ВСЕГДА
 
     function setupMap() {
       const isAdmin = mode === "admin";
@@ -151,24 +151,21 @@
     }
 
     function loadExistingZones() {
-    fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
-    .then(res => res.json())
-    .then(json => {
-      console.log("📦 Ответ от сервера (zones):", json); // 👈 ДОБАВЬ ЭТО
-
-      if (json.status === "ok" && Array.isArray(json.zones)) {
-        for (const zone of json.zones) {
-          console.log("▶️ Зона:", zone); // 👈 ДОБАВЬ ЭТО
-
-          const coords = zone.polygon_coords.map(p => [p.lat, p.lon]);
-          const poly = L.polygon(coords, { color: "red" }).addTo(map);
-          if (zone.zone_number && zone.date_start && zone.date_end) {
-            poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
+      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
+        .then(res => res.json())
+        .then(json => {
+          console.log("📦 Ответ от сервера (zones):", json);
+          if (json.status === "ok" && Array.isArray(json.zones)) {
+            for (const zone of json.zones) {
+              const coords = zone.polygon.map(p => [p.lat, p.lon]);
+              const poly = L.polygon(coords, { color: "red" }).addTo(map);
+              if (zone.zone_number && zone.date_start && zone.date_end) {
+                poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
+              }
+            }
           }
-        }
-      }
-    });
-}
+        });
+    }
 
     function loadExistingPoints() {
       fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
@@ -193,8 +190,8 @@
     }
 
     window.sendZone = function () {
-      const features = drawnItems.toGeoJSON();
-      if (!features.features.length) {
+      const features = drawnItems?.toGeoJSON?.();
+      if (!features || !features.features.length) {
         alert("⚠️ Нарисуйте зону.");
         return;
       }
