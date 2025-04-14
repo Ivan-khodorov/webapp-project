@@ -151,20 +151,24 @@
     }
 
     function loadExistingZones() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.status === "ok" && Array.isArray(json.zones)) {
-            for (const zone of json.zones) {
-              const coords = zone.polygon_coords.map(p => [p.lat, p.lon]);
-              const poly = L.polygon(coords, { color: "red" }).addTo(map);
-              if (zone.zone_number && zone.date_start && zone.date_end) {
-                poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
-              }
-            }
+    fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/zones/${city}`)
+    .then(res => res.json())
+    .then(json => {
+      console.log("📦 Ответ от сервера (zones):", json); // 👈 ДОБАВЬ ЭТО
+
+      if (json.status === "ok" && Array.isArray(json.zones)) {
+        for (const zone of json.zones) {
+          console.log("▶️ Зона:", zone); // 👈 ДОБАВЬ ЭТО
+
+          const coords = zone.polygon_coords.map(p => [p.lat, p.lon]);
+          const poly = L.polygon(coords, { color: "red" }).addTo(map);
+          if (zone.zone_number && zone.date_start && zone.date_end) {
+            poly.bindTooltip(`Зона №${zone.zone_number}<br>🗓 ${zone.date_start} – ${zone.date_end}`);
           }
-        });
-    }
+        }
+      }
+    });
+}
 
     function loadExistingPoints() {
       fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
