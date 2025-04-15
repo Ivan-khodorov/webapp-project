@@ -165,7 +165,7 @@ function loadExistingZones() {
 }
 
 function loadExistingPoints() {
-  fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
+  fetch("https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points")
     .then(res => res.json())
     .then(json => {
       if (json.points && Array.isArray(json.points)) {
