@@ -45,7 +45,7 @@
     let socket;
     let markers = [];
 
-    const urlParams = new URLSearchParams(window.location.search);
+       const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has("startapp")) {
       const [modeParam, cityParam] = urlParams.get("startapp").split("-");
       city = decodeURIComponent(cityParam || "Москва"); // ← декодировать обязательно
@@ -55,6 +55,10 @@
       alert("Город не задан. Запустите WebApp через Telegram-бота.");
       throw new Error("Не передан параметр startapp");
     }
+
+    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
+    setupMap();
+
     function setupMap() {
       const isAdmin = mode === "admin";
       if (isAdmin) {
