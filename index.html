@@ -34,80 +34,100 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-  <script>
-    Telegram.WebApp.ready();
+ <script>
+  Telegram.WebApp.ready();
 
-    let city = "Москва";
-    let mode = "worker";
-    let telegramId = 0;
-    let drawnItems;
-    let map;
-    let socket;
-    let markers = [];
+  let city = "Москва";
+  let mode = "worker";
+  let telegramId = 0;
+  let drawnItems;
+  let map;
+  let socket;
+  let markers = [];
+  const displayedPoints = new Set();
 
-       const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has("startapp")) {
-      const [modeParam, cityParam] = urlParams.get("startapp").split("-");
-      city = decodeURIComponent(cityParam || "Москва"); // ← декодировать обязательно
-      mode = modeParam || "worker";
-      console.log("🏙 Город из startapp:", city);
-    } else {
-      alert("Город не задан. Запустите WebApp через Telegram-бота.");
-      throw new Error("Не передан параметр startapp");
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("startapp")) {
+    const [modeParam, cityParam] = urlParams.get("startapp").split("-");
+    city = decodeURIComponent(cityParam || "Москва");
+    mode = modeParam || "worker";
+    console.log("🏙 Город из startapp:", city);
+  } else {
+    alert("Город не задан. Запустите WebApp через Telegram-бота.");
+    throw new Error("Не передан параметр startapp");
+  }
+
+  function drawPoint(p) {
+    if (!p.lat || !p.lon) return;
+
+    const key = `${p.lat}-${p.lon}`;
+    if (displayedPoints.has(key)) return;
+    displayedPoints.add(key);
+
+    const marker = L.circleMarker([p.lat, p.lon], {
+      radius: 8,
+      color: "blue"
+    }).addTo(map);
+
+    const html = `
+      <b>📬 Листовок:</b> ${p.flyer_count || "?"}<br>
+      <b>👤:</b> ${p.username || "?"}<br>
+      <b>🕒:</b> ${p.created_at || "?"}<br>
+      ${p.order ? `<b>#️⃣:</b> ${p.order}` : ""}
+    `;
+    marker.bindPopup(html);
+    markers.push(marker);
+  }
+
+  function setupMap() {
+    const isAdmin = mode === "admin";
+    if (isAdmin) {
+      document.getElementById("adminControls").style.display = "flex";
     }
 
-    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
-    setupMap();
+    map = L.map("map").setView([55.75, 37.61], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
 
-    function setupMap() {
-      const isAdmin = mode === "admin";
-      if (isAdmin) {
-        document.getElementById("adminControls").style.display = "flex";
-      }
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
 
-      map = L.map("map").setView([55.75, 37.61], 13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(map);
+    if (isAdmin) {
+      const drawControl = new L.Control.Draw({
+        draw: {
+          polyline: false,
+          rectangle: false,
+          circle: false,
+          marker: false,
+          circlemarker: false
+        },
+        edit: { featureGroup: drawnItems }
+      });
+      map.addControl(drawControl);
 
-      drawnItems = new L.FeatureGroup();
-      map.addLayer(drawnItems);
-
-      if (isAdmin) {
-        const drawControl = new L.Control.Draw({
-          draw: {
-            polyline: false,
-            rectangle: false,
-            circle: false,
-            marker: false,
-            circlemarker: false
-          },
-          edit: { featureGroup: drawnItems }
-        });
-        map.addControl(drawControl);
-
-        map.on(L.Draw.Event.CREATED, function (event) {
-          drawnItems.clearLayers();
-          drawnItems.addLayer(event.layer);
-        });
-      }
-
-      centerOnCity();
-      connectWebSocket();
-      loadExistingZones();
-      loadExistingPoints();
+      map.on(L.Draw.Event.CREATED, function (event) {
+        drawnItems.clearLayers();
+        drawnItems.addLayer(event.layer);
+      });
     }
 
-    function centerOnCity() {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city}`)
+    centerOnCity();
+    connectWebSocket();
+    loadExistingZones();
+    loadExistingPoints();
+
+    // 🔁 Каждые 5 сек — проверка новых точек
+    setInterval(() => {
+      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
         .then(res => res.json())
-        .then(data => {
-          if (data.length > 0) {
-            map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 13);
+        .then(json => {
+          if (json.points && Array.isArray(json.points)) {
+            json.points.forEach(drawPoint);
           }
         });
-    }
-
+    }, 5000);
+  }
     function connectWebSocket() {
       const wsUrl = `wss://humorous-tranquility-nixpackspythonversion311.up.railway.app/ws/${city}`;
       socket = new WebSocket(wsUrl);
@@ -163,37 +183,28 @@
         });
     }
 
-    function loadExistingPoints() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.points) {
-            for (const p of json.points) {
-              const marker = L.circleMarker([p.lat, p.lon], {
-                radius: 8,
-                color: "blue"
-              }).addTo(map);
-              const html = `
-                <b>📬 Листовок:</b> ${p.flyer_count}<br>
-                <b>👤 Работник:</b> ${p.username}<br>
-                <b>🕒 Время:</b> ${p.created_at}<br>
-                <b>#️⃣ Точка №:</b> ${p.order}
-              `;
-              marker.bindPopup(html);
-              markers.push(marker);
-            }
-          }
-        });
-    }
-    setInterval(() => {
+function loadExistingPoints() {
   fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
     .then(res => res.json())
     .then(json => {
-      if (json.points && Array.isArray(json.points)) {
-        json.points.forEach(drawPoint);
+      if (json.points) {
+        for (const p of json.points) {
+          const marker = L.circleMarker([p.lat, p.lon], {
+            radius: 8,
+            color: "blue"
+          }).addTo(map);
+          const html = `
+            <b>📬 Листовок:</b> ${p.flyer_count}<br>
+            <b>👤 Работник:</b> ${p.username}<br>
+            <b>🕒 Время:</b> ${p.created_at}<br>
+            <b>#️⃣ Точка №:</b> ${p.order}
+          `;
+          marker.bindPopup(html);
+          markers.push(marker);
+        }
       }
     });
-}, 5000);
+}
 
     window.sendZone = function () {
       const features = drawnItems?.toGeoJSON?.();
