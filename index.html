@@ -164,7 +164,7 @@
     }
 
     function loadExistingPoints() {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points/${city}`)
+      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
         .then(res => res.json())
         .then(json => {
           if (json.points) {
