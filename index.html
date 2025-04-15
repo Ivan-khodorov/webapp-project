@@ -48,13 +48,13 @@
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has("startapp")) {
       const [modeParam, cityParam] = urlParams.get("startapp").split("-");
-      city = cityParam || city;
-      mode = modeParam || mode;
+      city = decodeURIComponent(cityParam || "Москва"); // ← декодировать обязательно
+      mode = modeParam || "worker";
+      console.log("🏙 Город из startapp:", city);
+    } else {
+      alert("Город не задан. Запустите WebApp через Telegram-бота.");
+      throw new Error("Не передан параметр startapp");
     }
-
-    telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
-    setupMap();
-
     function setupMap() {
       const isAdmin = mode === "admin";
       if (isAdmin) {
