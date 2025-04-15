@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -56,30 +55,7 @@
     telegramId = Telegram.WebApp.initDataUnsafe?.user?.id || 0;
     setupMap();
 
-
-function drawPoint(p) {
-  if (!p.lat || !p.lon) {
-    console.warn("❌ Пропущена точка: отсутствуют координаты", p);
-    return;
-  }
-
-  const marker = L.circleMarker([p.lat, p.lon], {
-    radius: 8,
-    color: "blue"
-  }).addTo(map);
-
-  const html = `
-    <b>📬 Листовок:</b> ${p.flyer_count || "?"}<br>
-    <b>👤:</b> ${p.username || "?"}<br>
-    <b>🕒:</b> ${p.created_at || "?"}<br>
-    ${p.order ? `<b>#️⃣:</b> ${p.order}` : ""}
-  `;
-  marker.bindPopup(html);
-  markers.push(marker);
-}
-
-
-function setupMap() {
+    function setupMap() {
       const isAdmin = mode === "admin";
       if (isAdmin) {
         document.getElementById("adminControls").style.display = "flex";
@@ -145,8 +121,6 @@ function setupMap() {
         }
 
         if (msg.type === "new_point") {
-  drawPoint(msg.data);
-  return;
           const p = msg.data;
           const marker = L.circleMarker([p.lat, p.lon], {
             radius: 8,
@@ -191,8 +165,6 @@ function setupMap() {
         .then(json => {
           if (json.points) {
             for (const p of json.points) {
-    drawPoint(p);
-    continue;
               const marker = L.circleMarker([p.lat, p.lon], {
                 radius: 8,
                 color: "blue"
