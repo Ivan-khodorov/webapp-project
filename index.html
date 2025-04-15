@@ -185,6 +185,15 @@
           }
         });
     }
+    setInterval(() => {
+  fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
+    .then(res => res.json())
+    .then(json => {
+      if (json.points && Array.isArray(json.points)) {
+        json.points.forEach(drawPoint);
+      }
+    });
+}, 5000);
 
     window.sendZone = function () {
       const features = drawnItems?.toGeoJSON?.();
