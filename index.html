@@ -127,10 +127,14 @@ function connectWebSocket() {
     if (msg.type === "new_point") {
       const p = msg.data;
       if (!p.lat || !p.lon) return;
-      const marker = L.circleMarker([p.lat, p.lon], {
-        radius: 8,
-        color: "blue"
-      }).addTo(map);
+      const marker = L.marker([p.lat, p.lon], {
+  icon: L.divIcon({
+    className: 'custom-flyer-icon',
+    html: `<div class="flyer-box">${p.flyer_count ?? "?"}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  })
+}).addTo(map);
       const html = `
         <b>📬 Листовок:</b> ${p.flyer_count ?? "?"}<br>
         <b>👤:</b> ${p.username ?? "?"}<br>
