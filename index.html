@@ -127,12 +127,13 @@
             radius: 8,
             color: "blue"
           }).addTo(map);
-          marker.bindPopup(`
+          const html = `
             <b>📬 Листовок:</b> ${p.flyer_count}<br>
-            <b>👤:</b> ${p.username}<br>
-            <b>🕒:</b> ${p.created_at}<br>
-            <b>#️⃣:</b> ${p.order}
-          `);
+            <b>👤:</b> ${p.username || "?"}<br>
+            <b>🕒:</b> ${p.created_at || ""}<br>
+            ${p.order ? `<b>#️⃣:</b> ${p.order}` : ""}
+          `;
+          marker.bindPopup(html);
           markers.push(marker);
         }
       };
