@@ -79,55 +79,60 @@
     markers.push(marker);
   }
 
-  function setupMap() {
-    const isAdmin = mode === "admin";
-    if (isAdmin) {
-      document.getElementById("adminControls").style.display = "flex";
-    }
-
-    map = L.map("map").setView([55.75, 37.61], 13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(map);
-
-    drawnItems = new L.FeatureGroup();
-    map.addLayer(drawnItems);
-
-    if (isAdmin) {
-      const drawControl = new L.Control.Draw({
-        draw: {
-          polyline: false,
-          rectangle: false,
-          circle: false,
-          marker: false,
-          circlemarker: false
-        },
-        edit: { featureGroup: drawnItems }
-      });
-      map.addControl(drawControl);
-
-      map.on(L.Draw.Event.CREATED, function (event) {
-        drawnItems.clearLayers();
-        drawnItems.addLayer(event.layer);
-      });
-    }
-
-    centerOnCity();
-    connectWebSocket();
-    loadExistingZones();
-    loadExistingPoints();
-
-    // 🔁 Каждые 5 сек — проверка новых точек
-    setInterval(() => {
-      fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
-        .then(res => res.json())
-        .then(json => {
-          if (json.points && Array.isArray(json.points)) {
-            json.points.forEach(drawPoint);
-          }
-        });
-    }, 5000);
+ function setupMap() {
+  const isAdmin = mode === "admin";
+  if (isAdmin) {
+    document.getElementById("adminControls").style.display = "flex";
   }
+
+  map = L.map("map").setView([55.75, 37.61], 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  if (isAdmin) {
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polyline: false,
+        rectangle: false,
+        circle: false,
+        marker: false,
+        circlemarker: false
+      },
+      edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+
+    map.on(L.Draw.Event.CREATED, function (event) {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(event.layer);
+    });
+  }
+
+  centerOnCity();
+  connectWebSocket();
+  loadExistingZones();
+  loadExistingPoints();
+
+  setInterval(() => {
+    fetch(`https://humorous-tranquility-nixpackspythonversion311.up.railway.app/points`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.points && Array.isArray(json.points)) {
+          json.points.forEach(drawPoint);
+        }
+      });
+  }, 5000);
+}
+
+// ✅ Вызов строго через ready:
+Telegram.WebApp.ready(() => {
+  setupMap();
+});
+
     function connectWebSocket() {
       const wsUrl = `wss://humorous-tranquility-nixpackspythonversion311.up.railway.app/ws/${city}`;
       socket = new WebSocket(wsUrl);
